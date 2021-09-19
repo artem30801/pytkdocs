@@ -537,6 +537,7 @@ class Loader:
             ("_declared_fields", ["marshmallow-model"], self.get_marshmallow_field_documentation),
             ("_meta.get_fields", ["django-model"], self.get_django_field_documentation),
             ("__dataclass_fields__", ["dataclass"], self.get_annotated_dataclass_field),
+            ("__attrs_attrs__", ["attrs"], self.get_annotated_attrs_field)
         ):
             if self.detect_field_model(attr_name, direct_members, all_members):
                 root_object.properties.extend(properties)
@@ -806,6 +807,33 @@ class Loader:
             properties=["dataclass-field"],
         )
 
+    @staticmethod
+    def get_annotated_attrs_field(node: ObjectNode, attribute_data: Optional[dict] = None) -> Attribute:
+        """
+        Get the documentation for a dataclass field.
+
+        Arguments:
+            node: The node representing the annotation and its parents.
+            attribute_data: Docstring and annotation for this attribute.
+
+        Returns:
+            The documented attribute object.
+        """
+        if attribute_data is None:
+            if node.parent_is_class():
+                attribute_data = get_class_attributes(node.parent.obj).get(node.name, {})  # type: ignore
+            else:
+                attribute_data = get_module_attributes(node.root.obj).get(node.name, {})
+
+        return Attribute(
+            name=node.name,
+            path=node.dotted_path,
+            file_path=node.file_path,
+            docstring=attribute_data.get("docstring"),
+            attr_type=node.obj.type,
+            properties=["attrs-field"],
+        )
+
     def get_classmethod_documentation(self, node: ObjectNode) -> Method:
         """
         Get the documentation for a class-method.
@@ -990,11 +1018,14 @@ def field_is_inherited(field_name: str, fields_name: str, base_class: type) -> b
     """
     # To tell if a field was inherited, we check if it exists in parent classes __fields__ attributes.
     # We don't check the current class, nor the top one (object), hence __mro__[1:-1]
-    return field_name in set(
-        chain(
-            *(getattr(parent_class, fields_name, {}).keys() for parent_class in base_class.__mro__[1:-1]),
-        ),
-    )
+    try:
+        return field_name in set(
+            chain(
+                *(getattr(parent_class, fields_name, {}).keys() for parent_class in base_class.__mro__[1:-1]),
+            ),
+        )
+    except:
+        return False
 
 
 def split_attr_name(attr_name: str) -> Tuple[str, Optional[str]]:
