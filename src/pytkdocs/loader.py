@@ -537,7 +537,7 @@ class Loader:
             ("_declared_fields", ["marshmallow-model"], self.get_marshmallow_field_documentation),
             ("_meta.get_fields", ["django-model"], self.get_django_field_documentation),
             ("__dataclass_fields__", ["dataclass"], self.get_annotated_dataclass_field),
-            ("__attrs_attrs__", ["attrs"], self.get_annotated_attrs_field)
+            ("__attrs_attrs__", ["attrs"], self.get_annotated_attrs_field),
         ):
             if self.detect_field_model(attr_name, direct_members, all_members):
                 root_object.properties.extend(properties)
@@ -819,19 +819,26 @@ class Loader:
         Returns:
             The documented attribute object.
         """
+
         if attribute_data is None:
             if node.parent_is_class():
                 attribute_data = get_class_attributes(node.parent.obj).get(node.name, {})  # type: ignore
             else:
                 attribute_data = get_module_attributes(node.root.obj).get(node.name, {})
 
+        tracked_props = ["kw_only", "inherited"]
+        props = ["attrs-field"]
+        for prop in tracked_props:
+            if getattr(node.obj, prop, False):
+                props.append(prop)
+
         return Attribute(
             name=node.name,
             path=node.dotted_path,
             file_path=node.file_path,
-            docstring=attribute_data.get("docstring"),
+            docstring=attribute_data.get("docstring") or node.obj.metadata.get("docs"),
             attr_type=node.obj.type,
-            properties=["attrs-field"],
+            properties=props,
         )
 
     def get_classmethod_documentation(self, node: ObjectNode) -> Method:
