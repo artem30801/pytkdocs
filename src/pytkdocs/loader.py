@@ -828,12 +828,18 @@ class Loader:
         for prop in tracked_props:
             if getattr(node.obj, prop, False):
                 props.append(prop)
-
+        
+        docstring = attribute_data.get("docstring")
+        if docstring:
+            node.obj.metadata["docs"] = docstring  # to make it work with inheritance
+        else:
+            docstring = node.obj.metadata.get("docs")
+        
         return Attribute(
             name=node.name,
             path=node.dotted_path,
             file_path=node.file_path,
-            docstring=attribute_data.get("docstring") or node.obj.metadata.get("docs"),
+            docstring=docstring,
             attr_type=node.obj.type,
             properties=props,
         )
